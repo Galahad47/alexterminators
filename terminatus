@@ -1,0 +1,103 @@
+import math
+from datetime import datetime
+import matplotlib as plt
+
+R = 6347
+
+def sun_coor(date):
+    year = date.year
+    month = date.month
+    day = date.day
+    ut = date.hour + date.minute / 60 + date.second / 3600
+
+    if month <= 2:
+        month += 12
+        year -= 1
+
+    var = 365 * year - 679004
+    b = year // 400 - year // 100 + year // 4
+    result = var + b + 306001 * (month + 1) / 10000 + day
+    md = result + ut / 24
+
+    t0 = (md - 51544.5) / 36525
+    a1 = 24110.54841
+    a2 = 8640184.812
+    a3 = 0.093104
+    a4 = 0.0000062
+    s0 = a1 + a2 * t0 + a3 * t0**2 - a4 * t0**3
+
+    nsec = int(ut * 3600)
+    nsecs = nsec * 366.2422 / 365.2422
+    sg = (s0 + nsecs) / 3600 * 15
+
+    rot = [
+        [math.cos(math.radians(sg)), -math.sin(math.radians(sg)), 0],
+        [math.sin(math.radians(sg)), math.cos(math.radians(sg)), 0],
+        [0, 0, 1]
+    ]
+
+    m = 357.528 + 35999.05 * t0 + 0.04107 * ut
+    l0 = 280.46 + 36000.772 * t0 + 0.04107 * ut
+    l = l0 + (1.915 - 0.0048 * t0) * math.sin(math.radians(m)) + 0.02 * math.sin(math.radians(2 * m))
+    l = l % 360
+
+    x = math.cos(math.radians(l))
+    y = math.sin(math.radians(l))
+    z = 0
+
+    eps = 23.439281
+    x1 = x
+    y1 = y * math.cos(math.radians(eps)) - z * math.sin(math.radians(eps))
+    z1 = y * math.sin(math.radians(eps)) + z * math.cos(math.radians(eps))
+
+    sun_coor = [x1, y1, z1]
+    sun_coor_gr = [sum(rot[i][j] * sun_coor[i] for i in range(3)) for j in range(3)]
+
+    alfa = math.degrees(math.atan2(sun_coor_gr[1], sun_coor_gr[0]))
+    fi = math.degrees(math.atan2(sun_coor_gr[2], math.sqrt(sun_coor_gr[0]**2 + sun_coor_gr[1]**2)))
+
+    return [fi, alfa]
+
+def ortodrom(fo, lo, f1, l1):
+    fo = math.radians(fo)
+    f1 = math.radians(f1)
+    deltaf = f1 - fo
+    deltal = math.radians(l1 - lo)
+    a = math.sin(deltaf / 2)**2 + math.cos(fo) * math.cos(f1) * math.sin(deltal / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    d = R * c
+    return d
+
+def az(fo, lo, f1, l1):
+    fo = math.radians(fo)
+    f1 = math.radians(f1)
+    deltal = math.radians(l1 - lo)
+    y = math.sin(deltal) * math.cos(f1)
+    x = math.cos(fo) * math.sin(f1) - math.sin(fo) * math.cos(f1) * math.cos(deltal)
+    a = math.degrees(math.atan2(y, x))
+    return a
+
+def sm(d, h):
+    
+    s = math.sqrt(2 * h * d)
+    l = math.asin(s / R) * R
+    return l
+
+def coor_point(fo, lo, az, d):
+    fo = math.radians(fo)
+    az = math.radians(az)
+    f2 = math.asin(math.sin(fo) * math.cos(d / R) + math.cos(fo) * math.sin(d / R) * math.cos(az))
+    l2 = lo + math.degrees(math.atan2(math.sin(az) * math.sin(d / R) * math.cos(fo), math.cos(d / R) - math.sin(fo) * math.sin(f2)))
+    if l2 > 180:
+        l2 = -360 + l2
+    if l2 < -180:
+        l2 = 360 + l2
+    return [math.degrees(f2), l2]
+
+def print_sun_coordinates(date):
+    coordinates = sun_coor(date)
+    fi, alfa = coordinates
+    print(f"Координаты Солнца: Широта = {fi:.2f}, Долгота = {alfa:.2f}")
+
+date = datetime.now()
+print_sun_coordinates(date)
